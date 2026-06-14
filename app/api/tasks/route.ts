@@ -1,0 +1,19 @@
+import { NextRequest, NextResponse } from 'next/server'
+import prisma from '@/lib/db'
+
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url)
+  const limit = parseInt(searchParams.get('limit') || '20', 10)
+  const offset = parseInt(searchParams.get('offset') || '0', 10)
+
+  const [tasks, total] = await Promise.all([
+    prisma.taskLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      skip: offset,
+    }),
+    prisma.taskLog.count(),
+  ])
+
+  return NextResponse.json({ tasks, total })
+}

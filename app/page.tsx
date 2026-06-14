@@ -1,65 +1,124 @@
-import Image from "next/image";
+import { requireAuth } from '@/lib/auth'
+import prisma from '@/lib/db'
+import { FileText, Mail, CheckCircle, Clock } from 'lucide-react'
+import Link from 'next/link'
 
-export default function Home() {
+export default async function DashboardPage() {
+  await requireAuth()
+
+  const totalPapers = await prisma.paper.count()
+  const todayPapers = await prisma.paper.count({
+    where: {
+      createdAt: {
+        gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      },
+    },
+  })
+  const notifiedPapers = await prisma.paper.count({ where: { status: 'notified' } })
+  const analyzedPapers = await prisma.paper.count({ where: { status: 'analyzed' } })
+
+  const recentPapers = await prisma.paper.findMany({
+    orderBy: { publishedAt: 'desc' },
+    take: 5,
+  })
+
+  const recentTasks = await prisma.taskLog.findMany({
+    orderBy: { createdAt: 'desc' },
+    take: 5,
+  })
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-2xl font-bold">仪表盘</h1>
+        <p className="text-gray-500">arXiv 论文监控概览</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <StatCard icon={FileText} label="论文总数" value={totalPapers} />
+        <StatCard icon={Clock} label="24 小时内新增" value={todayPapers} />
+        <StatCard icon={Mail} label="已发送日报" value={notifiedPapers} />
+        <StatCard icon={CheckCircle} label="已深入分析" value={analyzedPapers} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <section className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">最近论文</h2>
+            <Link href="/papers" className="text-sm text-slate-600 hover:text-slate-900">
+              查看全部 →
+            </Link>
+          </div>
+          <div className="space-y-4">
+            {recentPapers.length === 0 && (
+              <p className="text-gray-400 text-sm">暂无论文</p>
+            )}
+            {recentPapers.map((paper) => (
+              <div key={paper.id} className="border-b border-gray-100 pb-3 last:border-0">
+                <Link
+                  href={`/paper/${paper.arxivId}`}
+                  className="font-medium text-slate-900 hover:text-slate-600 line-clamp-1"
+                >
+                  {paper.title}
+                </Link>
+                <p className="text-xs text-gray-500 mt-1">
+                  {paper.publishedAt.toLocaleDateString('zh-CN')} · {paper.status}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">最近任务</h2>
+            <Link href="/tasks" className="text-sm text-slate-600 hover:text-slate-900">
+              查看全部 →
+            </Link>
+          </div>
+          <div className="space-y-3">
+            {recentTasks.length === 0 && (
+              <p className="text-gray-400 text-sm">暂无任务记录</p>
+            )}
+            {recentTasks.map((task) => (
+              <div key={task.id} className="flex items-center justify-between text-sm">
+                <span className="text-gray-700">{task.taskType}</span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-xs ${
+                    task.status === 'success'
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-red-100 text-red-700'
+                  }`}
+                >
+                  {task.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
     </div>
-  );
+  )
+}
+
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof FileText
+  label: string
+  value: number
+}) {
+  return (
+    <div className="bg-white rounded-lg shadow p-5 flex items-center gap-4">
+      <div className="p-3 bg-slate-100 rounded-lg">
+        <Icon size={24} className="text-slate-700" />
+      </div>
+      <div>
+        <p className="text-2xl font-bold">{value}</p>
+        <p className="text-sm text-gray-500">{label}</p>
+      </div>
+    </div>
+  )
 }
