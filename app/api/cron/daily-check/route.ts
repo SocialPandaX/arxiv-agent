@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
-import { fetchArxivPapers } from '@/lib/arxiv'
+import { fetchArxivPapers, type ArxivPaper } from '@/lib/arxiv'
 import { summarizeAbstract } from '@/lib/llm'
 import { sendDailyEmail } from '@/lib/email'
 
@@ -26,17 +26,21 @@ export async function GET(request: NextRequest) {
 
     const papers = await fetchArxivPapers(query, maxResults, yesterday, now)
 
-    const existingIds = new Set(
-      (
-        await prisma.paper.findMany({
-          where: { arxivId: { in: papers.map((p) => p.arxivId) } },
-          select: { arxivId: true },
-        })
-      ).map((p) => p.arxivId)
-    )
+    const existingPapers: Array<{ arxivId: string }> = await prisma.paper.findMany({
+      where: { arxivId: { in: papers.map((p: ArxivPaper) => p.arxivId) } },
+      select: { arxivId: true },
+    })
+    const existingIds = new Set(existingPapers.map((p) => p.arxivId))
 
-    const newPapers = papers.filter((p) => !existingIds.has(p.arxivId))
-    const createdPapers = []
+    const newPapers = papers.filter((p: ArxivPaper) => !existingIds.has(p.arxivId))
+    const createdPapers: Array<{
+      id: string
+      arxivId: string
+      title: string
+      authors: string
+      summaryZh: string | null
+      pdfUrl: string
+    }> = []
 
     for (const paper of newPapers) {
       const summaryZh = await summarizeAbstract(
