@@ -4,7 +4,13 @@ import prisma from '@/lib/db'
 export default async function TasksPage() {
   await requireAuth()
 
-  const tasks = await prisma.taskLog.findMany({
+  const tasks: Array<{
+    id: string
+    taskType: string
+    status: string
+    message: string | null
+    createdAt: Date
+  }> = await prisma.taskLog.findMany({
     orderBy: { createdAt: 'desc' },
     take: 100,
   })
