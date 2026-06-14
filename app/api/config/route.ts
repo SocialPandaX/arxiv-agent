@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
+import type { Config } from '@prisma/client'
 
 const CONFIG_KEYS = [
   'arxiv_query',
@@ -17,7 +18,7 @@ export async function GET() {
 
   const result: Record<string, string> = {}
   for (const key of CONFIG_KEYS) {
-    const config = configs.find((c) => c.key === key)
+    const config = configs.find((c: Config) => c.key === key)
     result[key] = config?.value || getDefaultValue(key)
   }
 
