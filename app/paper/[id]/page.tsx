@@ -1,5 +1,6 @@
 import { requireAuth } from '@/lib/auth'
 import prisma from '@/lib/db'
+import type { Paper } from '@/types'
 import { notFound } from 'next/navigation'
 import AnalyzeButton from './AnalyzeButton'
 import Link from 'next/link'
@@ -12,16 +13,7 @@ export default async function PaperDetailPage({
   await requireAuth()
   const { id } = await params
 
-  const paper: {
-    arxivId: string
-    title: string
-    authors: string
-    summary: string
-    summaryZh: string | null
-    pdfUrl: string
-    status: string
-    fullAnalysis: string | null
-  } | null = await prisma.paper.findUnique({ where: { arxivId: id } })
+  const paper: Paper | null = await prisma.paper.findUnique({ where: { arxivId: id } })
   if (!paper) notFound()
 
   return (

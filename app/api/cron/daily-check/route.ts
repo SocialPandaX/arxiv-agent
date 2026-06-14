@@ -3,6 +3,7 @@ import prisma from '@/lib/db'
 import { fetchArxivPapers, type ArxivPaper } from '@/lib/arxiv'
 import { summarizeAbstract } from '@/lib/llm'
 import { sendDailyEmail } from '@/lib/email'
+import type { Paper } from '@/types'
 
 async function getConfig(key: string, defaultValue: string): Promise<string> {
   const config = await prisma.config.findUnique({ where: { key } })
@@ -33,14 +34,7 @@ export async function GET(request: NextRequest) {
     const existingIds = new Set(existingPapers.map((p) => p.arxivId))
 
     const newPapers = papers.filter((p: ArxivPaper) => !existingIds.has(p.arxivId))
-    const createdPapers: Array<{
-      id: string
-      arxivId: string
-      title: string
-      authors: string
-      summaryZh: string | null
-      pdfUrl: string
-    }> = []
+    const createdPapers: Paper[] = []
 
     for (const paper of newPapers) {
       const summaryZh = await summarizeAbstract(
@@ -63,14 +57,14 @@ export async function GET(request: NextRequest) {
           summaryZh,
         },
       })
-      createdPapers.push(created)
+      createdPapers.push(created as Paper)
     }
 
     let emailResult = null
     if (emailTo && createdPapers.length > 0) {
       emailResult = await sendDailyEmail(
         emailTo,
-        createdPapers.map((p) => ({
+        createdPapers.map((p: Paper) => ({
           arxivId: p.arxivId,
           title: p.title,
           authors: p.authors,
@@ -80,7 +74,7 @@ export async function GET(request: NextRequest) {
       )
 
       await prisma.paper.updateMany({
-        where: { id: { in: createdPapers.map((p) => p.id) } },
+        where: { id: { in: createdPapers.map((p: Paper) => p.id) } },
         data: { status: 'notified' },
       })
     }
@@ -93,7 +87,7 @@ export async function GET(request: NextRequest) {
         meta: {
           fetched: papers.length,
           created: createdPapers.length,
-          arxivIds: createdPapers.map((p) => p.arxivId),
+          arxivIds: createdPapers.map((p: Paper) => p.arxivId),
         },
       },
     })

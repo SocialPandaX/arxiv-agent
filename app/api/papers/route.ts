@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
+import type { Paper } from '@/types'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
       orderBy: { publishedAt: 'desc' },
       take: limit,
       skip: offset,
-    }),
+    }) as Promise<Paper[]>,
     prisma.paper.count({ where }),
   ])
 

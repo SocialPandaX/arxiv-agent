@@ -1,5 +1,6 @@
 import { requireAuth } from '@/lib/auth'
 import prisma from '@/lib/db'
+import type { Paper, TaskLog } from '@/types'
 import { FileText, Mail, CheckCircle, Clock } from 'lucide-react'
 import Link from 'next/link'
 
@@ -17,22 +18,12 @@ export default async function DashboardPage() {
   const notifiedPapers = await prisma.paper.count({ where: { status: 'notified' } })
   const analyzedPapers = await prisma.paper.count({ where: { status: 'analyzed' } })
 
-  const recentPapers: Array<{
-    id: string
-    arxivId: string
-    title: string
-    publishedAt: Date
-    status: string
-  }> = await prisma.paper.findMany({
+  const recentPapers: Paper[] = await prisma.paper.findMany({
     orderBy: { publishedAt: 'desc' },
     take: 5,
   })
 
-  const recentTasks: Array<{
-    id: string
-    taskType: string
-    status: string
-  }> = await prisma.taskLog.findMany({
+  const recentTasks: TaskLog[] = await prisma.taskLog.findMany({
     orderBy: { createdAt: 'desc' },
     take: 5,
   })

@@ -1,5 +1,6 @@
 import { requireAuth } from '@/lib/auth'
 import prisma from '@/lib/db'
+import type { Paper } from '@/types'
 import Link from 'next/link'
 
 export default async function PapersPage({
@@ -11,14 +12,7 @@ export default async function PapersPage({
   const { status } = await searchParams
 
   const where = status ? { status } : {}
-  const papers: Array<{
-    id: string
-    arxivId: string
-    title: string
-    authors: string
-    publishedAt: Date
-    status: string
-  }> = await prisma.paper.findMany({
+  const papers: Paper[] = await prisma.paper.findMany({
     where,
     orderBy: { publishedAt: 'desc' },
     take: 100,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { downloadAndExtractPdf } from '@/lib/pdf'
 import { analyzeFullPaper } from '@/lib/llm'
+import type { Paper } from '@/types'
 
 export async function POST(
   request: NextRequest,
@@ -10,7 +11,7 @@ export async function POST(
   const { id } = await params
 
   try {
-    const paper = await prisma.paper.findUnique({ where: { arxivId: id } })
+    const paper: Paper | null = await prisma.paper.findUnique({ where: { arxivId: id } })
     if (!paper) {
       return NextResponse.json({ error: 'Paper not found' }, { status: 404 })
     }
@@ -21,8 +22,8 @@ export async function POST(
     })
 
     const text = await downloadAndExtractPdf(paper.pdfUrl)
-    const analysisModel =
-      (await prisma.config.findUnique({ where: { key: 'analysis_model' } }))?.value || 'gpt-4o'
+    const config = await prisma.config.findUnique({ where: { key: 'analysis_model' } })
+    const analysisModel = config?.value || 'gpt-4o'
 
     const fullAnalysis = await analyzeFullPaper(paper.title, text, analysisModel)
 

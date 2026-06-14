@@ -1,16 +1,11 @@
 import { requireAuth } from '@/lib/auth'
 import prisma from '@/lib/db'
+import type { TaskLog } from '@/types'
 
 export default async function TasksPage() {
   await requireAuth()
 
-  const tasks: Array<{
-    id: string
-    taskType: string
-    status: string
-    message: string | null
-    createdAt: Date
-  }> = await prisma.taskLog.findMany({
+  const tasks: TaskLog[] = await prisma.taskLog.findMany({
     orderBy: { createdAt: 'desc' },
     take: 100,
   })
