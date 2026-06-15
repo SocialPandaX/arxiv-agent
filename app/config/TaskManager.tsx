@@ -7,6 +7,7 @@ interface Task {
   name: string
   query: string
   maxResults: number
+  emailTo: string | null
   enabled: boolean
   createdAt: string
 }
@@ -15,6 +16,7 @@ interface TaskFormData {
   name: string
   query: string
   maxResults: string
+  emailTo: string
   enabled: boolean
 }
 
@@ -22,6 +24,7 @@ const emptyForm: TaskFormData = {
   name: '',
   query: '',
   maxResults: '50',
+  emailTo: '',
   enabled: true,
 }
 
@@ -50,6 +53,7 @@ export default function TaskManager() {
       name: task.name,
       query: task.query,
       maxResults: String(task.maxResults),
+      emailTo: task.emailTo || '',
       enabled: task.enabled,
     })
     setShowForm(true)
@@ -77,6 +81,7 @@ export default function TaskManager() {
         name: form.name,
         query: form.query,
         maxResults: form.maxResults,
+        emailTo: form.emailTo,
         enabled: form.enabled,
       }),
     })
@@ -102,6 +107,7 @@ export default function TaskManager() {
         name: task.name,
         query: task.query,
         maxResults: task.maxResults,
+        emailTo: task.emailTo,
         enabled: !task.enabled,
       }),
     })
@@ -141,7 +147,12 @@ export default function TaskManager() {
                   </span>
                 </div>
                 <p className="text-sm text-gray-500 mt-1 font-mono">{task.query}</p>
-                <p className="text-xs text-gray-400 mt-1">最大 {task.maxResults} 篇/次</p>
+                <div className="flex items-center gap-4 mt-1">
+                  <p className="text-xs text-gray-400">最大 {task.maxResults} 篇/次</p>
+                  {task.emailTo && (
+                    <p className="text-xs text-gray-400">📧 {task.emailTo}</p>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-2 ml-4">
                 <button
@@ -218,6 +229,19 @@ export default function TaskManager() {
                 value={form.maxResults}
                 onChange={(e) => setForm({ ...form, maxResults: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                接收邮件地址
+              </label>
+              <input
+                type="email"
+                value={form.emailTo}
+                onChange={(e) => setForm({ ...form, emailTo: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500"
+                placeholder="your@email.com（留空则不发邮件）"
               />
             </div>
 

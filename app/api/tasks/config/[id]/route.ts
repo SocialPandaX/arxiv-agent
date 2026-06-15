@@ -9,7 +9,7 @@ export async function PUT(
   await requireAuth()
   const { id } = await params
   const body = await request.json()
-  const { name, query, maxResults, enabled } = body
+  const { name, query, maxResults, emailTo, enabled } = body
 
   const task = await prisma.task.update({
     where: { id },
@@ -17,6 +17,7 @@ export async function PUT(
       name,
       query,
       maxResults: parseInt(maxResults) || 50,
+      emailTo: emailTo || null,
       enabled,
     },
   })

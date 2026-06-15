@@ -13,7 +13,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   await requireAuth()
   const body = await request.json()
-  const { name, query, maxResults, enabled } = body
+  const { name, query, maxResults, emailTo, enabled } = body
 
   if (!name || !query) {
     return NextResponse.json(
@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
       name,
       query,
       maxResults: parseInt(maxResults) || 50,
+      emailTo: emailTo || null,
       enabled: enabled !== false,
     },
   })

@@ -5,15 +5,11 @@ import { useEffect, useState } from 'react'
 interface Config {
   summary_model: string
   analysis_model: string
-  email_to: string
-  email_subject_template: string
 }
 
 const defaultConfig: Config = {
   summary_model: 'gpt-4o-mini',
   analysis_model: 'gpt-4o',
-  email_to: '',
-  email_subject_template: '[arXiv 日报] {{date}} 发现 {{count}} 篇新论文',
 }
 
 export default function ConfigForm() {
@@ -65,6 +61,9 @@ export default function ConfigForm() {
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500"
           placeholder="gpt-4o-mini"
         />
+        <p className="text-xs text-gray-500 mt-1">
+          用于论文摘要翻译和今日综述生成
+        </p>
       </div>
 
       <div>
@@ -78,31 +77,9 @@ export default function ConfigForm() {
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500"
           placeholder="gpt-4o"
         />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          接收邮件地址
-        </label>
-        <input
-          type="email"
-          value={config.email_to}
-          onChange={(e) => setConfig({ ...config, email_to: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500"
-          placeholder="your@email.com"
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          邮件标题模板
-        </label>
-        <input
-          type="text"
-          value={config.email_subject_template}
-          onChange={(e) => setConfig({ ...config, email_subject_template: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500"
-        />
+        <p className="text-xs text-gray-500 mt-1">
+          用于点击"深入分析"时的全文解析
+        </p>
       </div>
 
       {message && (

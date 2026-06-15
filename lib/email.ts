@@ -18,13 +18,16 @@ export interface PaperEmailItem {
 export async function sendDailyEmail(
   to: string,
   papers: PaperEmailItem[],
-  dailySummary?: string
+  dailySummary?: string,
+  taskName?: string
 ) {
   if (papers.length === 0) return null
 
   const resend = getResend()
   const dateStr = new Date().toLocaleDateString('zh-CN')
-  const subject = `[arXiv 日报] ${dateStr} 发现 ${papers.length} 篇新论文`
+  const subject = taskName
+    ? `[${taskName}] ${dateStr} 发现 ${papers.length} 篇新论文`
+    : `[arXiv 日报] ${dateStr} 发现 ${papers.length} 篇新论文`
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
 
   const rawFrom = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
@@ -41,7 +44,7 @@ export async function sendDailyEmail(
 
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 720px; margin: 0 auto; color: #1f2937;">
-      <h1 style="color: #111827; border-bottom: 2px solid #e5e7eb; padding-bottom: 12px;">arXiv 日报 - ${dateStr}</h1>
+      <h1 style="color: #111827; border-bottom: 2px solid #e5e7eb; padding-bottom: 12px;">${taskName || 'arXiv 日报'} - ${dateStr}</h1>
       <p style="color: #4b5563;">今日共发现 <strong>${papers.length}</strong> 篇新论文：</p>
       ${summaryHtml}
       ${papers

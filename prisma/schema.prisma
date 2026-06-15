@@ -21,6 +21,7 @@ model Task {
   name          String   // 任务名称，如 "AI 论文追踪"
   query         String   // arXiv 查询表达式
   maxResults    Int      @default(50)
+  emailTo       String?  // 接收邮件地址
   enabled       Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

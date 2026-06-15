@@ -21,7 +21,6 @@ export async function GET(request: NextRequest) {
 
   try {
     const summaryModel = await getConfig('summary_model', 'gpt-4o-mini')
-    const emailTo = await getConfig('email_to', '')
 
     // 获取所有启用的任务
     const tasks = await prisma.task.findMany({
@@ -39,7 +38,7 @@ export async function GET(request: NextRequest) {
 
     let totalFetched = 0
     let totalCreated = 0
-    const allCreatedPapers: Paper[] = []
+    const taskResults: Array<{ taskId: string; taskName: string; created: number; emailed: boolean }> = []
 
     // 遍历每个任务
     for (const task of tasks) {
@@ -52,6 +51,7 @@ export async function GET(request: NextRequest) {
       const existingIds = new Set(existingPapers.map((p) => p.arxivId))
 
       const newPapers = papers.filter((p: ArxivPaper) => !existingIds.has(p.arxivId))
+      const createdPapers: Paper[] = []
 
       for (const paper of newPapers) {
         const summaryZh = await summarizeAbstract(
@@ -75,50 +75,58 @@ export async function GET(request: NextRequest) {
             taskId: task.id,
           },
         })
-        allCreatedPapers.push(created as Paper)
+        createdPapers.push(created as Paper)
       }
 
       totalFetched += papers.length
-      totalCreated += newPapers.length
-    }
+      totalCreated += createdPapers.length
 
-    // 发送邮件
-    let emailResult = null
-    let emailSkippedReason = null
-    if (!emailTo) {
-      emailSkippedReason = 'No email_to configured'
-    } else if (allCreatedPapers.length === 0) {
-      emailSkippedReason = 'No new papers to send'
-    } else {
-      // 生成今日综述
-      let dailySummary = ''
-      try {
-        dailySummary = await generateDailySummary(
-          allCreatedPapers.map((p: Paper) => ({
-            title: p.title,
-            summaryZh: p.summaryZh || '',
-          })),
-          summaryModel
-        )
-      } catch (e: any) {
-        console.error('Failed to generate daily summary:', e.message)
+      // 给这个任务单独发邮件
+      let emailed = false
+      if (task.emailTo && createdPapers.length > 0) {
+        // 生成今日综述
+        let dailySummary = ''
+        try {
+          dailySummary = await generateDailySummary(
+            createdPapers.map((p: Paper) => ({
+              title: p.title,
+              summaryZh: p.summaryZh || '',
+            })),
+            summaryModel
+          )
+        } catch (e: any) {
+          console.error(`Failed to generate daily summary for task ${task.name}:`, e.message)
+        }
+
+        try {
+          await sendDailyEmail(
+            task.emailTo,
+            createdPapers.map((p: Paper) => ({
+              arxivId: p.arxivId,
+              title: p.title,
+              authors: p.authors,
+              summaryZh: p.summaryZh || '',
+              pdfUrl: p.pdfUrl,
+            })),
+            dailySummary,
+            task.name
+          )
+          emailed = true
+
+          await prisma.paper.updateMany({
+            where: { id: { in: createdPapers.map((p: Paper) => p.id) } },
+            data: { status: 'notified' },
+          })
+        } catch (e: any) {
+          console.error(`Failed to send email for task ${task.name}:`, e.message)
+        }
       }
 
-      emailResult = await sendDailyEmail(
-        emailTo,
-        allCreatedPapers.map((p: Paper) => ({
-          arxivId: p.arxivId,
-          title: p.title,
-          authors: p.authors,
-          summaryZh: p.summaryZh || '',
-          pdfUrl: p.pdfUrl,
-        })),
-        dailySummary
-      )
-
-      await prisma.paper.updateMany({
-        where: { id: { in: allCreatedPapers.map((p: Paper) => p.id) } },
-        data: { status: 'notified' },
+      taskResults.push({
+        taskId: task.id,
+        taskName: task.name,
+        created: createdPapers.length,
+        emailed,
       })
     }
 
@@ -131,7 +139,7 @@ export async function GET(request: NextRequest) {
           tasksRun: tasks.length,
           fetched: totalFetched,
           created: totalCreated,
-          arxivIds: allCreatedPapers.map((p: Paper) => p.arxivId),
+          taskResults,
         },
       },
     })
@@ -141,8 +149,7 @@ export async function GET(request: NextRequest) {
       tasksRun: tasks.length,
       fetched: totalFetched,
       created: totalCreated,
-      emailSent: !!emailResult,
-      emailSkippedReason,
+      taskResults,
     })
   } catch (error: any) {
     await prisma.taskLog.create({
