@@ -4,6 +4,8 @@ import { downloadAndExtractPdf } from '@/lib/pdf'
 import { analyzeFullPaper } from '@/lib/llm'
 import type { Paper } from '@/types'
 
+export const maxDuration = 60
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -46,22 +48,28 @@ export async function POST(
 
     return NextResponse.json({ success: true, paper: updated })
   } catch (error: any) {
-    await prisma.paper.update({
-      where: { arxivId: id },
-      data: { status: 'notified' },
-    })
+    console.error('Analyze PDF error:', error)
+
+    try {
+      await prisma.paper.update({
+        where: { arxivId: id },
+        data: { status: 'notified' },
+      })
+    } catch (updateError) {
+      console.error('Failed to reset paper status:', updateError)
+    }
 
     await prisma.taskLog.create({
       data: {
         taskType: 'analyze-pdf',
         status: 'failure',
-        message: error.message,
-        meta: { arxivId: id },
+        message: error?.message || String(error),
+        meta: { arxivId: id, stack: error?.stack },
       },
     })
 
     return NextResponse.json(
-      { error: error.message || 'Unknown error' },
+      { error: error?.message || 'Unknown error' },
       { status: 500 }
     )
   }
