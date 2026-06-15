@@ -20,58 +20,81 @@ export async function GET(request: NextRequest) {
   const yesterday = new Date(now.getTime() - 48 * 60 * 60 * 1000)
 
   try {
-    const query = await getConfig('arxiv_query', 'cat:cs.AI')
-    const maxResults = parseInt(await getConfig('arxiv_max_results', '50'), 10)
     const summaryModel = await getConfig('summary_model', 'gpt-4o-mini')
     const emailTo = await getConfig('email_to', '')
 
-    const papers = await fetchArxivPapers(query, maxResults, yesterday, now)
-
-    const existingPapers: Array<{ arxivId: string }> = await prisma.paper.findMany({
-      where: { arxivId: { in: papers.map((p: ArxivPaper) => p.arxivId) } },
-      select: { arxivId: true },
+    // 获取所有启用的任务
+    const tasks = await prisma.task.findMany({
+      where: { enabled: true },
     })
-    const existingIds = new Set(existingPapers.map((p) => p.arxivId))
 
-    const newPapers = papers.filter((p: ArxivPaper) => !existingIds.has(p.arxivId))
-    const createdPapers: Paper[] = []
-
-    for (const paper of newPapers) {
-      const summaryZh = await summarizeAbstract(
-        paper.title,
-        paper.authors,
-        paper.summary,
-        summaryModel
-      )
-
-      const created = await prisma.paper.create({
-        data: {
-          arxivId: paper.arxivId,
-          title: paper.title,
-          authors: paper.authors,
-          summary: paper.summary,
-          pdfUrl: paper.pdfUrl,
-          publishedAt: paper.publishedAt,
-          categories: paper.categories,
-          status: 'summarized',
-          summaryZh,
-        },
+    if (tasks.length === 0) {
+      return NextResponse.json({
+        success: true,
+        message: 'No enabled tasks',
+        fetched: 0,
+        created: 0,
       })
-      createdPapers.push(created as Paper)
     }
 
+    let totalFetched = 0
+    let totalCreated = 0
+    const allCreatedPapers: Paper[] = []
+
+    // 遍历每个任务
+    for (const task of tasks) {
+      const papers = await fetchArxivPapers(task.query, task.maxResults, yesterday, now)
+
+      const existingPapers: Array<{ arxivId: string }> = await prisma.paper.findMany({
+        where: { arxivId: { in: papers.map((p: ArxivPaper) => p.arxivId) } },
+        select: { arxivId: true },
+      })
+      const existingIds = new Set(existingPapers.map((p) => p.arxivId))
+
+      const newPapers = papers.filter((p: ArxivPaper) => !existingIds.has(p.arxivId))
+
+      for (const paper of newPapers) {
+        const summaryZh = await summarizeAbstract(
+          paper.title,
+          paper.authors,
+          paper.summary,
+          summaryModel
+        )
+
+        const created = await prisma.paper.create({
+          data: {
+            arxivId: paper.arxivId,
+            title: paper.title,
+            authors: paper.authors,
+            summary: paper.summary,
+            pdfUrl: paper.pdfUrl,
+            publishedAt: paper.publishedAt,
+            categories: paper.categories,
+            status: 'summarized',
+            summaryZh,
+            taskId: task.id,
+          },
+        })
+        allCreatedPapers.push(created as Paper)
+      }
+
+      totalFetched += papers.length
+      totalCreated += newPapers.length
+    }
+
+    // 发送邮件
     let emailResult = null
     let emailSkippedReason = null
     if (!emailTo) {
       emailSkippedReason = 'No email_to configured'
-    } else if (createdPapers.length === 0) {
+    } else if (allCreatedPapers.length === 0) {
       emailSkippedReason = 'No new papers to send'
     } else {
-      // Generate daily summary for all papers
+      // 生成今日综述
       let dailySummary = ''
       try {
         dailySummary = await generateDailySummary(
-          createdPapers.map((p: Paper) => ({
+          allCreatedPapers.map((p: Paper) => ({
             title: p.title,
             summaryZh: p.summaryZh || '',
           })),
@@ -83,7 +106,7 @@ export async function GET(request: NextRequest) {
 
       emailResult = await sendDailyEmail(
         emailTo,
-        createdPapers.map((p: Paper) => ({
+        allCreatedPapers.map((p: Paper) => ({
           arxivId: p.arxivId,
           title: p.title,
           authors: p.authors,
@@ -94,7 +117,7 @@ export async function GET(request: NextRequest) {
       )
 
       await prisma.paper.updateMany({
-        where: { id: { in: createdPapers.map((p: Paper) => p.id) } },
+        where: { id: { in: allCreatedPapers.map((p: Paper) => p.id) } },
         data: { status: 'notified' },
       })
     }
@@ -103,19 +126,21 @@ export async function GET(request: NextRequest) {
       data: {
         taskType: 'daily-check',
         status: 'success',
-        message: `Fetched ${papers.length}, created ${createdPapers.length}`,
+        message: `Tasks: ${tasks.length}, fetched ${totalFetched}, created ${totalCreated}`,
         meta: {
-          fetched: papers.length,
-          created: createdPapers.length,
-          arxivIds: createdPapers.map((p: Paper) => p.arxivId),
+          tasksRun: tasks.length,
+          fetched: totalFetched,
+          created: totalCreated,
+          arxivIds: allCreatedPapers.map((p: Paper) => p.arxivId),
         },
       },
     })
 
     return NextResponse.json({
       success: true,
-      fetched: papers.length,
-      created: createdPapers.length,
+      tasksRun: tasks.length,
+      fetched: totalFetched,
+      created: totalCreated,
       emailSent: !!emailResult,
       emailSkippedReason,
     })

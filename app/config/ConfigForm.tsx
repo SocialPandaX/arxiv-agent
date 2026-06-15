@@ -3,8 +3,6 @@
 import { useEffect, useState } from 'react'
 
 interface Config {
-  arxiv_query: string
-  arxiv_max_results: string
   summary_model: string
   analysis_model: string
   email_to: string
@@ -12,8 +10,6 @@ interface Config {
 }
 
 const defaultConfig: Config = {
-  arxiv_query: 'cat:cs.AI',
-  arxiv_max_results: '50',
   summary_model: 'gpt-4o-mini',
   analysis_model: 'gpt-4o',
   email_to: '',
@@ -58,34 +54,6 @@ export default function ConfigForm() {
 
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-6 max-w-2xl">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          arXiv 搜索表达式
-        </label>
-        <input
-          type="text"
-          value={config.arxiv_query}
-          onChange={(e) => setConfig({ ...config, arxiv_query: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500"
-          placeholder="cat:cs.AI"
-        />
-        <p className="text-xs text-gray-500 mt-1">
-          示例：cat:cs.AI、cat:cs.LG+OR+cat:cs.CL、all:large language model
-        </p>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          每次最大抓取数量
-        </label>
-        <input
-          type="number"
-          value={config.arxiv_max_results}
-          onChange={(e) => setConfig({ ...config, arxiv_max_results: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500"
-        />
-      </div>
-
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
           摘要总结模型

@@ -16,6 +16,16 @@ model Config {
   updatedAt DateTime @updatedAt
 }
 
+model Task {
+  id            String   @id @default(cuid())
+  name          String   // 任务名称，如 "AI 论文追踪"
+  query         String   // arXiv 查询表达式
+  maxResults    Int      @default(50)
+  enabled       Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
 model Paper {
   id            String    @id @default(cuid())
   arxivId       String    @unique
@@ -28,6 +38,7 @@ model Paper {
   status        String    // new / summarized / notified / analyzing / analyzed
   summaryZh     String?   @db.Text
   fullAnalysis  String?   @db.Text
+  taskId        String?   // 关联的任务 ID
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
