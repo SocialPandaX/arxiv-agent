@@ -49,9 +49,11 @@ export default async function PaperDetailPage({
 
       <section className="bg-white rounded-lg shadow p-6">
         <h2 className="text-lg font-semibold mb-3">中文摘要总结</h2>
-        <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-          {paper.summaryZh || '暂无总结'}
-        </p>
+        {paper.summaryZh ? (
+          <MarkdownContent content={paper.summaryZh} />
+        ) : (
+          <p className="text-gray-500">暂无总结</p>
+        )}
       </section>
 
       <section className="bg-white rounded-lg shadow p-6">
