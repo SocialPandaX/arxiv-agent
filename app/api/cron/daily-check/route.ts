@@ -61,7 +61,12 @@ export async function GET(request: NextRequest) {
     }
 
     let emailResult = null
-    if (emailTo && createdPapers.length > 0) {
+    let emailSkippedReason = null
+    if (!emailTo) {
+      emailSkippedReason = 'No email_to configured'
+    } else if (createdPapers.length === 0) {
+      emailSkippedReason = 'No new papers to send'
+    } else {
       emailResult = await sendDailyEmail(
         emailTo,
         createdPapers.map((p: Paper) => ({
@@ -97,6 +102,7 @@ export async function GET(request: NextRequest) {
       fetched: papers.length,
       created: createdPapers.length,
       emailSent: !!emailResult,
+      emailSkippedReason,
     })
   } catch (error: any) {
     await prisma.taskLog.create({

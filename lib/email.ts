@@ -23,6 +23,9 @@ export async function sendDailyEmail(to: string, papers: PaperEmailItem[]) {
   const subject = `[arXiv 日报] ${dateStr} 发现 ${papers.length} 篇新论文`
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
 
+  const rawFrom = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
+  const from = isValidEmail(rawFrom) ? rawFrom : 'onboarding@resend.dev'
+
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 720px; margin: 0 auto; color: #1f2937;">
       <h1 style="color: #111827; border-bottom: 2px solid #e5e7eb; padding-bottom: 12px;">arXiv 日报 - ${dateStr}</h1>
@@ -48,9 +51,13 @@ export async function sendDailyEmail(to: string, papers: PaperEmailItem[]) {
   `
 
   return await resend.emails.send({
-    from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+    from,
     to,
     subject,
     html,
   })
+}
+
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
