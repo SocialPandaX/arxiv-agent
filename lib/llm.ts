@@ -29,7 +29,7 @@ export async function summarizeAbstract(
   model = 'gpt-4o-mini'
 ): Promise<string> {
   const openai = getOpenAI()
-  const systemPrompt = await loadPrompt('summarize-abstract.txt')
+  const systemPrompt = await loadPrompt('summarize-abstract.md')
 
   const response = await openai.chat.completions.create({
     model,
@@ -50,7 +50,7 @@ export async function generateDailySummary(
   model = 'gpt-4o-mini'
 ): Promise<string> {
   const openai = getOpenAI()
-  const systemPrompt = await loadPrompt('daily-summary.txt')
+  const systemPrompt = await loadPrompt('daily-summary.md')
   const papersText = papers
     .map((p, i) => `${i + 1}. ${p.title}\n   ${p.summaryZh}`)
     .join('\n\n')
@@ -75,7 +75,7 @@ export async function analyzeFullPaper(
   model = 'gpt-4o'
 ): Promise<string> {
   const openai = getOpenAI()
-  const systemPrompt = await loadPrompt('analyze-paper.txt')
+  const systemPrompt = await loadPrompt('analyze-paper.md')
   const maxChars = 15000
   const truncated = text.slice(0, maxChars)
 
