@@ -9,7 +9,7 @@ export default async function ConfigPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold">配置</h1>
-        <p className="text-gray-500">管理论文追踪任务和全局设置</p>
+        <p className="text-gray-500">管理追踪任务和全局设置</p>
       </div>
 
       <TaskManager />

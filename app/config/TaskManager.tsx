@@ -119,7 +119,7 @@ export default function TaskManager() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">论文追踪任务</h2>
+        <h2 className="text-lg font-semibold">追踪任务</h2>
         <button
           onClick={startCreate}
           className="px-4 py-2 bg-slate-900 text-white rounded-md hover:bg-slate-800 text-sm"
@@ -130,7 +130,7 @@ export default function TaskManager() {
 
       {tasks.length === 0 ? (
         <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
-          还没有创建任何任务，点击"新建任务"添加 arXiv 论文追踪
+          还没有创建任何任务，点击"新建任务"进行添加
         </div>
       ) : (
         <div className="space-y-3">
@@ -148,9 +148,9 @@ export default function TaskManager() {
                 </div>
                 <p className="text-sm text-gray-500 mt-1 font-mono">{task.query}</p>
                 <div className="flex items-center gap-4 mt-1">
-                  <p className="text-xs text-gray-400">最大 {task.maxResults} 篇/次</p>
+                  <p className="text-xs text-gray-400">最大抓取论文数量： {task.maxResults}</p>
                   {task.emailTo && (
-                    <p className="text-xs text-gray-400">📧 {task.emailTo}</p>
+                    <p className="text-xs text-gray-400">{task.emailTo}</p>
                   )}
                 </div>
               </div>
