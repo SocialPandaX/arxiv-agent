@@ -1,12 +1,26 @@
 import { PDFParse } from 'pdf-parse'
-import { DOMMatrix } from 'canvas'
 
-if (typeof globalThis.DOMMatrix === 'undefined') {
-  // @ts-expect-error polyfill DOMMatrix for pdfjs-dist in Node.js
-  globalThis.DOMMatrix = DOMMatrix
+async function ensureDomMatrix() {
+  if (typeof globalThis.DOMMatrix !== 'undefined') return
+
+  try {
+    const { DOMMatrix } = await import('@napi-rs/canvas')
+    // @ts-expect-error polyfill DOMMatrix for pdfjs-dist in Node.js
+    globalThis.DOMMatrix = DOMMatrix
+  } catch {
+    try {
+      const { DOMMatrix } = await import('canvas')
+      // @ts-expect-error polyfill DOMMatrix for pdfjs-dist in Node.js
+      globalThis.DOMMatrix = DOMMatrix
+    } catch {
+      console.warn('No canvas package available, DOMMatrix polyfill skipped')
+    }
+  }
 }
 
 export async function downloadAndExtractPdf(url: string): Promise<string> {
+  await ensureDomMatrix()
+
   const res = await fetch(url)
   if (!res.ok) {
     throw new Error(`PDF download failed: ${res.status}`)
