@@ -4,6 +4,7 @@ import type { Paper } from '@/types'
 import { notFound } from 'next/navigation'
 import AnalyzeButton from './AnalyzeButton'
 import Link from 'next/link'
+import MarkdownContent from './MarkdownContent'
 
 export default async function PaperDetailPage({
   params,
@@ -63,9 +64,7 @@ export default async function PaperDetailPage({
       {paper.fullAnalysis && (
         <section className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-semibold mb-3">完整论文分析</h2>
-          <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-            {paper.fullAnalysis}
-          </p>
+          <MarkdownContent content={paper.fullAnalysis} />
         </section>
       )}
     </div>
