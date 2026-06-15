@@ -15,7 +15,11 @@ export interface PaperEmailItem {
   pdfUrl: string
 }
 
-export async function sendDailyEmail(to: string, papers: PaperEmailItem[]) {
+export async function sendDailyEmail(
+  to: string,
+  papers: PaperEmailItem[],
+  dailySummary?: string
+) {
   if (papers.length === 0) return null
 
   const resend = getResend()
@@ -26,10 +30,20 @@ export async function sendDailyEmail(to: string, papers: PaperEmailItem[]) {
   const rawFrom = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
   const from = isValidEmail(rawFrom) ? rawFrom : 'onboarding@resend.dev'
 
+  const summaryHtml = dailySummary
+    ? `
+      <div style="margin-bottom: 32px; padding: 20px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #3b82f6;">
+        <h2 style="color: #1e293b; margin-top: 0; margin-bottom: 12px;">今日综述</h2>
+        <div style="color: #475569; line-height: 1.7; white-space: pre-line;">${dailySummary}</div>
+      </div>
+    `
+    : ''
+
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 720px; margin: 0 auto; color: #1f2937;">
       <h1 style="color: #111827; border-bottom: 2px solid #e5e7eb; padding-bottom: 12px;">arXiv 日报 - ${dateStr}</h1>
       <p style="color: #4b5563;">今日共发现 <strong>${papers.length}</strong> 篇新论文：</p>
+      ${summaryHtml}
       ${papers
         .map(
           (p) => `

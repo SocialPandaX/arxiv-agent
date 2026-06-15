@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { fetchArxivPapers, type ArxivPaper } from '@/lib/arxiv'
-import { summarizeAbstract } from '@/lib/llm'
+import { summarizeAbstract, generateDailySummary } from '@/lib/llm'
 import { sendDailyEmail } from '@/lib/email'
 import type { Paper } from '@/types'
 
@@ -67,6 +67,20 @@ export async function GET(request: NextRequest) {
     } else if (createdPapers.length === 0) {
       emailSkippedReason = 'No new papers to send'
     } else {
+      // Generate daily summary for all papers
+      let dailySummary = ''
+      try {
+        dailySummary = await generateDailySummary(
+          createdPapers.map((p: Paper) => ({
+            title: p.title,
+            summaryZh: p.summaryZh || '',
+          })),
+          summaryModel
+        )
+      } catch (e: any) {
+        console.error('Failed to generate daily summary:', e.message)
+      }
+
       emailResult = await sendDailyEmail(
         emailTo,
         createdPapers.map((p: Paper) => ({
@@ -75,7 +89,8 @@ export async function GET(request: NextRequest) {
           authors: p.authors,
           summaryZh: p.summaryZh || '',
           pdfUrl: p.pdfUrl,
-        }))
+        })),
+        dailySummary
       )
 
       await prisma.paper.updateMany({

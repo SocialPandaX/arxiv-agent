@@ -35,6 +35,33 @@ export async function summarizeAbstract(
   return response.choices[0]?.message?.content?.trim() || ''
 }
 
+export async function generateDailySummary(
+  papers: Array<{ title: string; summaryZh: string }>,
+  model = 'gpt-4o-mini'
+): Promise<string> {
+  const openai = getOpenAI()
+  const papersText = papers
+    .map((p, i) => `${i + 1}. ${p.title}\n   ${p.summaryZh}`)
+    .join('\n\n')
+
+  const response = await openai.chat.completions.create({
+    model,
+    messages: [
+      {
+        role: 'system',
+        content:
+          '你是一位 AI 研究趋势分析专家。请根据今日收录的多篇论文摘要，用中文撰写一份今日综述，概述今日研究的主要趋势、热点方向和值得关注的发现。控制在 300-500 字，使用 Markdown 格式。',
+      },
+      {
+        role: 'user',
+        content: `今日共收录 ${papers.length} 篇论文：\n\n${papersText}`,
+      },
+    ],
+    temperature: 0.3,
+  })
+  return response.choices[0]?.message?.content?.trim() || ''
+}
+
 export async function analyzeFullPaper(
   title: string,
   text: string,
