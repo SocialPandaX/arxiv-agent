@@ -2,6 +2,7 @@ import { requireAuth } from '@/lib/auth'
 import prisma from '@/lib/db'
 import type { Paper } from '@/types'
 import Link from 'next/link'
+import DeleteButton from './DeleteButton'
 
 export default async function PapersPage({
   searchParams,
@@ -20,7 +21,6 @@ export default async function PapersPage({
 
   const statusOptions = [
     { value: '', label: '全部' },
-    { value: 'new', label: '新论文' },
     { value: 'summarized', label: '已总结' },
     { value: 'notified', label: '已通知' },
     { value: 'analyzed', label: '已分析' },
@@ -57,12 +57,13 @@ export default async function PapersPage({
               <th className="text-left px-4 py-3 font-medium text-gray-700">作者</th>
               <th className="text-left px-4 py-3 font-medium text-gray-700">发布日期</th>
               <th className="text-left px-4 py-3 font-medium text-gray-700">状态</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-700">操作</th>
             </tr>
           </thead>
           <tbody>
             {papers.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
                   暂无论文
                 </td>
               </tr>
@@ -85,6 +86,12 @@ export default async function PapersPage({
                 </td>
                 <td className="px-4 py-3">
                   <StatusBadge status={paper.status} />
+                </td>
+                <td className="px-4 py-3">
+                  <DeleteButton
+                    arxivId={paper.arxivId}
+                    onDeleted={() => window.location.reload()}
+                  />
                 </td>
               </tr>
             ))}
