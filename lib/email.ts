@@ -36,7 +36,7 @@ export async function sendDailyEmail(
   const summaryHtml = dailySummary
     ? `
       <div style="margin-bottom: 32px; padding: 20px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #3b82f6;">
-        <h2 style="color: #1e293b; margin-top: 0; margin-bottom: 12px;">今日综述</h2>
+        <h2 style="color: #1e293b; margin-top: 0; margin-bottom: 12px;">概要</h2>
         <div style="color: #475569; line-height: 1.7; white-space: pre-line;">${dailySummary}</div>
       </div>
     `

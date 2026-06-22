@@ -3,7 +3,10 @@ import prisma from '@/lib/db'
 import { fetchArxivPapers, type ArxivPaper } from '@/lib/arxiv'
 import { summarizeAbstract, generateDailySummary } from '@/lib/llm'
 import { sendDailyEmail } from '@/lib/email'
+import { sleep } from '@/lib/rate-limit'
 import type { Paper } from '@/types'
+
+export const maxDuration = 300 // 5 分钟
 
 async function getConfig(key: string, defaultValue: string): Promise<string> {
   const config = await prisma.config.findUnique({ where: { key } })
@@ -41,7 +44,14 @@ export async function GET(request: NextRequest) {
     const taskResults: Array<{ taskId: string; taskName: string; created: number; emailed: boolean }> = []
 
     // 遍历每个任务
-    for (const task of tasks) {
+    for (let taskIndex = 0; taskIndex < tasks.length; taskIndex++) {
+      const task = tasks[taskIndex]
+
+      // arXiv 官方要求：请求间隔至少 3 秒
+      if (taskIndex > 0) {
+        await sleep(3000)
+      }
+
       const papers = await fetchArxivPapers(task.query, task.maxResults, yesterday, now)
 
       const existingPapers: Array<{ arxivId: string }> = await prisma.paper.findMany({
@@ -53,7 +63,14 @@ export async function GET(request: NextRequest) {
       const newPapers = papers.filter((p: ArxivPaper) => !existingIds.has(p.arxivId))
       const createdPapers: Paper[] = []
 
-      for (const paper of newPapers) {
+      for (let paperIndex = 0; paperIndex < newPapers.length; paperIndex++) {
+        const paper = newPapers[paperIndex]
+
+        // LLM 请求之间延迟 1 秒，防止 429
+        if (paperIndex > 0) {
+          await sleep(1000)
+        }
+
         const summaryZh = await summarizeAbstract(
           paper.title,
           paper.authors,
@@ -87,6 +104,7 @@ export async function GET(request: NextRequest) {
         // 生成今日综述
         let dailySummary = ''
         try {
+          await sleep(1000)
           dailySummary = await generateDailySummary(
             createdPapers.map((p: Paper) => ({
               title: p.title,

@@ -1,4 +1,5 @@
 import { XMLParser } from 'fast-xml-parser'
+import { withRetry } from './rate-limit'
 
 export interface ArxivPaper {
   arxivId: string
@@ -32,10 +33,18 @@ export async function fetchArxivPapers(
 
   const url = `https://export.arxiv.org/api/query?search_query=${encodeURIComponent(searchQuery)}&sortBy=submittedDate&sortOrder=descending&max_results=${maxResults}`
 
-  const res = await fetch(url, { next: { revalidate: 0 } })
-  if (!res.ok) {
-    throw new Error(`arXiv API error: ${res.status}`)
-  }
+  const res = await withRetry(
+    async () => {
+      const r = await fetch(url, { next: { revalidate: 0 } })
+      if (!r.ok) {
+        const err: any = new Error(`arXiv API error: ${r.status}`)
+        err.status = r.status
+        throw err
+      }
+      return r
+    },
+    { label: `arXiv (${query.slice(0, 30)})` }
+  )
 
   const xml = await res.text()
   const parser = new XMLParser({ ignoreAttributes: false })

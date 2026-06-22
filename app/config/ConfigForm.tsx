@@ -62,7 +62,7 @@ export default function ConfigForm() {
           placeholder="gpt-4o-mini"
         />
         <p className="text-xs text-gray-500 mt-1">
-          用于论文摘要翻译和今日综述生成
+          用于论文摘要翻译和概要生成
         </p>
       </div>
 
