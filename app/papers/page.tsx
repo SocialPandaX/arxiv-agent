@@ -88,10 +88,7 @@ export default async function PapersPage({
                   <StatusBadge status={paper.status} />
                 </td>
                 <td className="px-4 py-3">
-                  <DeleteButton
-                    arxivId={paper.arxivId}
-                    onDeleted={() => window.location.reload()}
-                  />
+                  <DeleteButton arxivId={paper.arxivId} />
                 </td>
               </tr>
             ))}

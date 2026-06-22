@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-export default function DeleteButton({ arxivId, onDeleted }: { arxivId: string; onDeleted: () => void }) {
+export default function DeleteButton({ arxivId }: { arxivId: string }) {
   const [deleting, setDeleting] = useState(false)
 
   async function handleDelete() {
@@ -15,7 +15,7 @@ export default function DeleteButton({ arxivId, onDeleted }: { arxivId: string; 
       })
 
       if (res.ok) {
-        onDeleted()
+        window.location.reload()
       } else {
         alert('删除失败')
       }
