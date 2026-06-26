@@ -1,6 +1,5 @@
 import OpenAI from 'openai'
-import fs from 'fs/promises'
-import path from 'path'
+import prisma from '@/lib/db'
 import { withRetry } from './rate-limit'
 
 function getOpenAI() {
@@ -13,14 +12,12 @@ function getOpenAI() {
   })
 }
 
-const promptsDir = path.join(process.cwd(), 'prompts')
-
-async function loadPrompt(filename: string): Promise<string> {
-  try {
-    return await fs.readFile(path.join(promptsDir, filename), 'utf-8')
-  } catch {
-    throw new Error(`Failed to load prompt: ${filename}`)
+async function loadPrompt(name: string): Promise<string> {
+  const prompt = await prisma.prompt.findUnique({ where: { name } })
+  if (!prompt) {
+    throw new Error(`Prompt not found: ${name}`)
   }
+  return prompt.content
 }
 
 export async function summarizeAbstract(
@@ -30,7 +27,7 @@ export async function summarizeAbstract(
   model = 'gpt-4o-mini'
 ): Promise<string> {
   const openai = getOpenAI()
-  const systemPrompt = await loadPrompt('summarize-abstract.md')
+  const systemPrompt = await loadPrompt('summarize-abstract')
 
   const response = await withRetry(
     () => openai.chat.completions.create({
@@ -54,7 +51,7 @@ export async function generateDailySummary(
   model = 'gpt-4o-mini'
 ): Promise<string> {
   const openai = getOpenAI()
-  const systemPrompt = await loadPrompt('daily-summary.md')
+  const systemPrompt = await loadPrompt('daily-summary')
   const papersText = papers
     .map((p, i) => `${i + 1}. ${p.title}\n   ${p.summaryZh}`)
     .join('\n\n')
@@ -82,7 +79,7 @@ export async function analyzeFullPaper(
   model = 'gpt-4o'
 ): Promise<string> {
   const openai = getOpenAI()
-  const systemPrompt = await loadPrompt('analyze-paper.md')
+  const systemPrompt = await loadPrompt('analyze-paper')
   const maxChars = 15000
   const truncated = text.slice(0, maxChars)
 

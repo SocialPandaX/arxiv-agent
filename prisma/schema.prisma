@@ -52,3 +52,10 @@ model TaskLog {
   meta      Json?
   createdAt DateTime @default(now())
 }
+
+model Prompt {
+  id        String   @id @default(cuid())
+  name      String   @unique // summarize-abstract / daily-summary / analyze-paper
+  content   String   @db.Text
+  updatedAt DateTime @updatedAt
+}
