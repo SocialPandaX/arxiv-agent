@@ -8,15 +8,56 @@ import type { Paper } from '@/types'
 
 export const maxDuration = 300 // 5 分钟
 
+const LOCK_KEY = 'daily_check_lock'
+const LOCK_STALE_MS = 10 * 60 * 1000 // 锁超过 10 分钟视为残留（上次异常退出）
+
 async function getConfig(key: string, defaultValue: string): Promise<string> {
   const config = await prisma.config.findUnique({ where: { key } })
   return config?.value || defaultValue
+}
+
+/**
+ * 尝试获取运行锁，防止两次 cron（定时 + 手动测试）并发跑导致唯一约束冲突
+ */
+async function acquireLock(): Promise<boolean> {
+  const existing = await prisma.config.findUnique({ where: { key: LOCK_KEY } })
+  if (existing && Date.now() - existing.updatedAt.getTime() < LOCK_STALE_MS) {
+    return false
+  }
+  try {
+    if (existing) {
+      // 残留锁已过期，直接接管
+      await prisma.config.update({
+        where: { key: LOCK_KEY },
+        data: { value: new Date().toISOString() },
+      })
+    } else {
+      // create 依赖唯一约束保证原子性：并发请求只有一个能成功
+      await prisma.config.create({
+        data: { key: LOCK_KEY, value: new Date().toISOString() },
+      })
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function releaseLock(): Promise<void> {
+  await prisma.config.deleteMany({ where: { key: LOCK_KEY } }).catch(() => {})
 }
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  if (!(await acquireLock())) {
+    return NextResponse.json(
+      { success: false, skipped: true, message: 'Another daily-check run is in progress' },
+      { status: 409 }
+    )
   }
 
   const now = new Date()
@@ -104,21 +145,31 @@ export async function GET(request: NextRequest) {
           failedSummaries++
         }
 
-        const created = await prisma.paper.create({
-          data: {
-            arxivId: paper.arxivId,
-            title: paper.title,
-            authors: paper.authors,
-            summary: paper.summary,
-            pdfUrl: paper.pdfUrl,
-            publishedAt: paper.publishedAt,
-            categories: paper.categories,
-            status,
-            summaryZh,
-            taskId: task.id,
-          },
-        })
-        createdPapers.push(created as Paper)
+        let created: Paper
+        try {
+          created = (await prisma.paper.create({
+            data: {
+              arxivId: paper.arxivId,
+              title: paper.title,
+              authors: paper.authors,
+              summary: paper.summary,
+              pdfUrl: paper.pdfUrl,
+              publishedAt: paper.publishedAt,
+              categories: paper.categories,
+              status,
+              summaryZh,
+              taskId: task.id,
+            },
+          })) as Paper
+        } catch (e: any) {
+          // 并发运行时可能已被另一次执行入库（arxivId 唯一约束冲突 P2002），跳过即可
+          if (e?.code === 'P2002') {
+            console.warn(`Paper ${paper.arxivId} already exists, skipping`)
+            continue
+          }
+          throw e
+        }
+        createdPapers.push(created)
       }
 
       totalFetched += papers.length
@@ -220,5 +271,7 @@ export async function GET(request: NextRequest) {
       { error: error.message || 'Unknown error' },
       { status: 500 }
     )
+  } finally {
+    await releaseLock()
   }
 }
