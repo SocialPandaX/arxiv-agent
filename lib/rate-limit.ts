@@ -41,9 +41,15 @@ export async function withRetry<T>(
         throw error
       }
 
-      const exponentialDelay = baseDelay * Math.pow(2, attempt)
-      const jitter = Math.random() * 1000
-      const delay = Math.min(exponentialDelay + jitter, maxDelay)
+      // 优先遵守服务端返回的 Retry-After（429/503 常见）
+      let delay: number
+      if (typeof error?.retryAfterMs === 'number' && error.retryAfterMs > 0) {
+        delay = Math.min(error.retryAfterMs, maxDelay)
+      } else {
+        const exponentialDelay = baseDelay * Math.pow(2, attempt)
+        const jitter = Math.random() * 1000
+        delay = Math.min(exponentialDelay + jitter, maxDelay)
+      }
 
       console.warn(
         `[${label}] 第 ${attempt + 1} 次失败 (status=${status})，${Math.round(delay)}ms 后重试...`

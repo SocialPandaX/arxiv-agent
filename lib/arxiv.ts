@@ -35,15 +35,35 @@ export async function fetchArxivPapers(
 
   const res = await withRetry(
     async () => {
-      const r = await fetch(url, { next: { revalidate: 0 } })
+      const r = await fetch(url, {
+        headers: {
+          // arXiv 要求客户端标识身份，缺失 UA 更容易被限流
+          'User-Agent': 'arxiv-agent/1.0 (daily paper monitor; contact: site owner)',
+        },
+        next: { revalidate: 0 },
+      })
       if (!r.ok) {
         const err: any = new Error(`arXiv API error: ${r.status}`)
         err.status = r.status
+        // 解析 Retry-After 头（秒或 HTTP 日期），交给 withRetry 遵守
+        const retryAfter = r.headers.get('retry-after')
+        if (retryAfter) {
+          const seconds = Number(retryAfter)
+          if (!Number.isNaN(seconds)) {
+            err.retryAfterMs = seconds * 1000
+          } else {
+            const dateMs = Date.parse(retryAfter)
+            if (!Number.isNaN(dateMs)) {
+              err.retryAfterMs = Math.max(0, dateMs - Date.now())
+            }
+          }
+        }
         throw err
       }
       return r
     },
-    { label: `arXiv (${query.slice(0, 30)})` }
+    // arXiv 限流较严格（共享 IP 常触发 429），加大重试次数与退避时长
+    { label: `arXiv (${query.slice(0, 30)})`, maxRetries: 5, baseDelay: 3000, maxDelay: 60000 }
   )
 
   const xml = await res.text()

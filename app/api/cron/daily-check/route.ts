@@ -41,7 +41,8 @@ export async function GET(request: NextRequest) {
 
     let totalFetched = 0
     let totalCreated = 0
-    const taskResults: Array<{ taskId: string; taskName: string; created: number; emailed: boolean }> = []
+    let failedTasks = 0
+    const taskResults: Array<{ taskId: string; taskName: string; created: number; emailed: boolean; error?: string }> = []
 
     // 遍历每个任务
     for (let taskIndex = 0; taskIndex < tasks.length; taskIndex++) {
@@ -52,7 +53,22 @@ export async function GET(request: NextRequest) {
         await sleep(3000)
       }
 
-      const papers = await fetchArxivPapers(task.query, task.maxResults, yesterday, now)
+      // 单个任务抓取失败（如 arXiv 429）不中断整个 cron，继续处理其余任务
+      let papers: ArxivPaper[]
+      try {
+        papers = await fetchArxivPapers(task.query, task.maxResults, yesterday, now)
+      } catch (e: any) {
+        console.error(`arXiv fetch failed for task ${task.name}:`, e.message)
+        failedTasks++
+        taskResults.push({
+          taskId: task.id,
+          taskName: task.name,
+          created: 0,
+          emailed: false,
+          error: e.message,
+        })
+        continue
+      }
 
       const existingPapers: Array<{ arxivId: string }> = await prisma.paper.findMany({
         where: { arxivId: { in: papers.map((p: ArxivPaper) => p.arxivId) } },
@@ -148,13 +164,19 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    // 全部任务都失败才算整体失败（通常是 arXiv 持续 429）
+    const allFailed = failedTasks === tasks.length
+
     await prisma.taskLog.create({
       data: {
         taskType: 'daily-check',
-        status: 'success',
-        message: `Tasks: ${tasks.length}, fetched ${totalFetched}, created ${totalCreated}`,
+        status: allFailed ? 'failure' : 'success',
+        message: allFailed
+          ? `All ${tasks.length} tasks failed: ${taskResults.map((r) => r.error).filter(Boolean)[0] || 'unknown'}`
+          : `Tasks: ${tasks.length} (${failedTasks} failed), fetched ${totalFetched}, created ${totalCreated}`,
         meta: {
           tasksRun: tasks.length,
+          failedTasks,
           fetched: totalFetched,
           created: totalCreated,
           taskResults,
@@ -162,13 +184,17 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    return NextResponse.json({
-      success: true,
-      tasksRun: tasks.length,
-      fetched: totalFetched,
-      created: totalCreated,
-      taskResults,
-    })
+    return NextResponse.json(
+      {
+        success: !allFailed,
+        tasksRun: tasks.length,
+        failedTasks,
+        fetched: totalFetched,
+        created: totalCreated,
+        taskResults,
+      },
+      { status: allFailed ? 500 : 200 }
+    )
   } catch (error: any) {
     await prisma.taskLog.create({
       data: {
