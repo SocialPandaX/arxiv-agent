@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
     let totalFetched = 0
     let totalCreated = 0
     let failedTasks = 0
+    let failedSummaries = 0
     const taskResults: Array<{ taskId: string; taskName: string; created: number; emailed: boolean; error?: string }> = []
 
     // 遍历每个任务
@@ -87,12 +88,21 @@ export async function GET(request: NextRequest) {
           await sleep(1000)
         }
 
-        const summaryZh = await summarizeAbstract(
-          paper.title,
-          paper.authors,
-          paper.summary,
-          summaryModel
-        )
+        // 单篇总结失败（如 LLM 404/限流）不中断流程：论文降级为 pending 入库，后续可手动重新分析
+        let summaryZh: string | null = null
+        let status = 'summarized'
+        try {
+          summaryZh = await summarizeAbstract(
+            paper.title,
+            paper.authors,
+            paper.summary,
+            summaryModel
+          )
+        } catch (e: any) {
+          console.error(`summarize failed for ${paper.arxivId}:`, e.message)
+          status = 'pending'
+          failedSummaries++
+        }
 
         const created = await prisma.paper.create({
           data: {
@@ -103,7 +113,7 @@ export async function GET(request: NextRequest) {
             pdfUrl: paper.pdfUrl,
             publishedAt: paper.publishedAt,
             categories: paper.categories,
-            status: 'summarized',
+            status,
             summaryZh,
             taskId: task.id,
           },
@@ -173,10 +183,11 @@ export async function GET(request: NextRequest) {
         status: allFailed ? 'failure' : 'success',
         message: allFailed
           ? `All ${tasks.length} tasks failed: ${taskResults.map((r) => r.error).filter(Boolean)[0] || 'unknown'}`
-          : `Tasks: ${tasks.length} (${failedTasks} failed), fetched ${totalFetched}, created ${totalCreated}`,
+          : `Tasks: ${tasks.length} (${failedTasks} failed), fetched ${totalFetched}, created ${totalCreated}, summary failed ${failedSummaries}`,
         meta: {
           tasksRun: tasks.length,
           failedTasks,
+          failedSummaries,
           fetched: totalFetched,
           created: totalCreated,
           taskResults,
@@ -189,6 +200,7 @@ export async function GET(request: NextRequest) {
         success: !allFailed,
         tasksRun: tasks.length,
         failedTasks,
+        failedSummaries,
         fetched: totalFetched,
         created: totalCreated,
         taskResults,

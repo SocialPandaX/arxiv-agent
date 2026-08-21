@@ -36,6 +36,7 @@ export default function PapersClient({ papers, status }: { papers: Paper[]; stat
 
   const statusOptions = [
     { value: '', label: '全部' },
+    { value: 'pending', label: '待总结' },
     { value: 'summarized', label: '已总结' },
     { value: 'notified', label: '已通知' },
     { value: 'analyzed', label: '已分析' },
@@ -132,6 +133,7 @@ export default function PapersClient({ papers, status }: { papers: Paper[]; stat
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
     new: 'bg-gray-100 text-gray-700',
+    pending: 'bg-red-100 text-red-700',
     summarized: 'bg-blue-100 text-blue-700',
     notified: 'bg-green-100 text-green-700',
     analyzing: 'bg-yellow-100 text-yellow-700',
@@ -140,6 +142,7 @@ function StatusBadge({ status }: { status: string }) {
 
   const labels: Record<string, string> = {
     new: '新论文',
+    pending: '待总结',
     summarized: '已总结',
     notified: '已通知',
     analyzing: '分析中',

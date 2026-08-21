@@ -12,6 +12,17 @@ function getOpenAI() {
   })
 }
 
+/**
+ * 给 LLM 错误补充模型名/接入地址上下文（404 通常是模型名不存在或 baseURL 配错）
+ */
+function withErrorContext<T>(promise: Promise<T>, model: string, label: string): Promise<T> {
+  return promise.catch((e: any) => {
+    const base = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'
+    e.message = `${label} 失败 (model=${model}, base=${base}): ${e.message}`
+    throw e
+  })
+}
+
 async function loadPrompt(name: string): Promise<string> {
   const prompt = await prisma.prompt.findUnique({ where: { name } })
   if (!prompt) {
@@ -29,19 +40,23 @@ export async function summarizeAbstract(
   const openai = getOpenAI()
   const systemPrompt = await loadPrompt('summarize-abstract')
 
-  const response = await withRetry(
-    () => openai.chat.completions.create({
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        {
-          role: 'user',
-          content: `标题：${title}\n作者：${authors}\n摘要：${abstract}`,
-        },
-      ],
-      temperature: 0.3,
-    }),
-    { label: `LLM summarize (${title.slice(0, 30)})` }
+  const response = await withErrorContext(
+    withRetry(
+      () => openai.chat.completions.create({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          {
+            role: 'user',
+            content: `标题：${title}\n作者：${authors}\n摘要：${abstract}`,
+          },
+        ],
+        temperature: 0.3,
+      }),
+      { label: `LLM summarize (${title.slice(0, 30)})` }
+    ),
+    model,
+    '摘要翻译'
   )
   return response.choices[0]?.message?.content?.trim() || ''
 }
@@ -56,19 +71,23 @@ export async function generateDailySummary(
     .map((p, i) => `${i + 1}. ${p.title}\n   ${p.summaryZh}`)
     .join('\n\n')
 
-  const response = await withRetry(
-    () => openai.chat.completions.create({
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        {
-          role: 'user',
-          content: `今日共收录 ${papers.length} 篇论文：\n\n${papersText}`,
-        },
-      ],
-      temperature: 0.3,
-    }),
-    { label: 'LLM daily-summary' }
+  const response = await withErrorContext(
+    withRetry(
+      () => openai.chat.completions.create({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          {
+            role: 'user',
+            content: `今日共收录 ${papers.length} 篇论文：\n\n${papersText}`,
+          },
+        ],
+        temperature: 0.3,
+      }),
+      { label: 'LLM daily-summary' }
+    ),
+    model,
+    '每日综述'
   )
   return response.choices[0]?.message?.content?.trim() || ''
 }
@@ -83,19 +102,23 @@ export async function analyzeFullPaper(
   const maxChars = 15000
   const truncated = text.slice(0, maxChars)
 
-  const response = await withRetry(
-    () => openai.chat.completions.create({
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        {
-          role: 'user',
-          content: `标题：${title}\n\n论文内容：\n${truncated}`,
-        },
-      ],
-      temperature: 0.3,
-    }),
-    { label: `LLM analyze (${title.slice(0, 30)})` }
+  const response = await withErrorContext(
+    withRetry(
+      () => openai.chat.completions.create({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          {
+            role: 'user',
+            content: `标题：${title}\n\n论文内容：\n${truncated}`,
+          },
+        ],
+        temperature: 0.3,
+      }),
+      { label: `LLM analyze (${title.slice(0, 30)})` }
+    ),
+    model,
+    '全文分析'
   )
   return response.choices[0]?.message?.content?.trim() || ''
 }
