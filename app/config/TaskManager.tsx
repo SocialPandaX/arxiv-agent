@@ -216,7 +216,7 @@ export default function TaskManager() {
                 required
               />
               <p className="text-xs text-gray-500 mt-1">
-                示例：cat:cs.AI、cat:cs.LG+OR+cat:cs.CL、all:large language model
+                示例：cat:cs.AI、cat:cs.LG OR cat:cs.CL、all:large language model（推荐用空格连接运算符，历史 +OR+ 写法仍兼容）
               </p>
             </div>
 

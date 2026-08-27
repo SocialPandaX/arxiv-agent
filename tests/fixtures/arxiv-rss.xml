@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"
+      xmlns:dc="http://purl.org/dc/elements/1.1/"
+      xmlns:arxiv="http://arxiv.org/schemas/atom">
+  <title>cs.AI updates</title>
+  <updated>2026-08-28T04:00:23Z</updated>
+  <entry>
+    <id>oai:arXiv.org:2608.24886v1</id>
+    <updated>2026-08-28T04:00:00Z</updated>
+    <published>2026-08-28T00:00:00-04:00</published>
+    <title>  New   RSS Paper  </title>
+    <summary>arXiv:2608.24886v1 Announce Type: new
+Abstract: This is the clean abstract.</summary>
+    <dc:creator>Alice RSS, Bob RSS</dc:creator>
+    <link href="https://arxiv.org/abs/2608.24886" rel="alternate" type="text/html"/>
+    <category term="cs.AI"/>
+    <arxiv:announce_type>new</arxiv:announce_type>
+  </entry>
+  <entry>
+    <id>oai:arXiv.org:2501.00001v1</id>
+    <published>2026-08-28T00:00:00-04:00</published>
+    <title>Cross-listed Paper</title>
+    <summary>arXiv:2501.00001v1 Announce Type: cross
+Abstract: Cross-listed abstract.</summary>
+    <dc:creator>Cross Author</dc:creator>
+    <link href="https://arxiv.org/abs/2501.00001" rel="alternate" type="text/html"/>
+    <category term="cs.AI"/>
+    <arxiv:announce_type>cross</arxiv:announce_type>
+  </entry>
+  <entry>
+    <id>oai:arXiv.org:2401.00001v2</id>
+    <published>2026-08-28T00:00:00-04:00</published>
+    <title>Replacement Paper</title>
+    <summary>arXiv:2401.00001v2 Announce Type: replace
+Abstract: Replacement abstract.</summary>
+    <dc:creator>Replacement Author</dc:creator>
+    <arxiv:announce_type>replace</arxiv:announce_type>
+  </entry>
+  <entry>
+    <id>oai:arXiv.org:2301.00001v3</id>
+    <published>2026-08-28T00:00:00-04:00</published>
+    <title>Replacement Cross Paper</title>
+    <summary>arXiv:2301.00001v3 Announce Type: replace-cross
+Abstract: Replacement cross abstract.</summary>
+    <dc:creator>Replacement Cross Author</dc:creator>
+    <arxiv:announce_type>replace-cross</arxiv:announce_type>
+  </entry>
+  <entry>
+    <id>not-an-arxiv-id</id>
+    <published>2026-08-28T00:00:00-04:00</published>
+    <title>Malformed New Paper</title>
+    <summary>Abstract: malformed</summary>
+    <arxiv:announce_type>new</arxiv:announce_type>
+  </entry>
+  <entry>
+    <id>oai:arXiv.org:2201.00001v1</id>
+    <published>2026-08-28T00:00:00-04:00</published>
+    <title>Unknown Announcement Paper</title>
+    <summary>Abstract: unknown announcement</summary>
+    <dc:creator>Unknown Author</dc:creator>
+  </entry>
+</feed>

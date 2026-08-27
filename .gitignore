@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/.test-dist
 
 # next.js
 /.next/
@@ -41,3 +42,6 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+# Claude Code temporary worktrees
+/.claude/worktrees/

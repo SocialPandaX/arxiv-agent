@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
+import { arxivCheckpointKey } from '@/lib/arxiv-plan'
 import prisma from '@/lib/db'
 
 export async function PUT(
@@ -32,6 +33,9 @@ export async function DELETE(
   await requireAuth()
   const { id } = await params
 
-  await prisma.task.delete({ where: { id } })
+  await prisma.$transaction([
+    prisma.config.deleteMany({ where: { key: arxivCheckpointKey(id) } }),
+    prisma.task.delete({ where: { id } }),
+  ])
   return NextResponse.json({ success: true })
 }
