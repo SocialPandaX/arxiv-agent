@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
-import { fetchArxivPapers, type ArxivPaper } from '@/lib/arxiv'
+import {
+  fetchArxivPapers,
+  fetchArxivFeed,
+  isCategoryOnlyQuery,
+  extractCategories,
+  matchesQuery,
+  type ArxivPaper,
+} from '@/lib/arxiv'
 import { summarizeAbstract, generateDailySummary } from '@/lib/llm'
 import { sendDailyEmail } from '@/lib/email'
 import { sleep } from '@/lib/rate-limit'
@@ -86,30 +93,107 @@ export async function GET(request: NextRequest) {
     let failedSummaries = 0
     const taskResults: Array<{ taskId: string; taskName: string; created: number; emailed: boolean; error?: string }> = []
 
-    // 遍历每个任务
-    for (let taskIndex = 0; taskIndex < tasks.length; taskIndex++) {
-      const task = tasks[taskIndex]
+    // ===== 抓取阶段：减少 arXiv 请求次数，降低 429 概率 =====
+    // 纯分类任务走官方每日 feed（每分类一次请求，跨任务共享），复杂查询合并为一次 search 请求
+    const feedTasks = tasks.filter((t) => isCategoryOnlyQuery(t.query))
+    const searchTasks = tasks.filter((t) => !isCategoryOnlyQuery(t.query))
 
+    const categoryPapers = new Map<string, ArxivPaper[]>()
+    const feedErrors = new Map<string, string>()
+    const categories = [...new Set(feedTasks.flatMap((t) => extractCategories(t.query)))]
+    let arxivRequests = 0
+
+    for (let i = 0; i < categories.length; i++) {
       // arXiv 官方要求：请求间隔至少 3 秒
-      if (taskIndex > 0) {
-        await sleep(3000)
-      }
-
-      // 单个任务抓取失败（如 arXiv 429）不中断整个 cron，继续处理其余任务
-      let papers: ArxivPaper[]
+      if (arxivRequests > 0) await sleep(3000)
+      arxivRequests++
       try {
-        papers = await fetchArxivPapers(task.query, task.maxResults, yesterday, now)
+        let papers = await fetchArxivFeed(categories[i])
+        // feed 只含最近一次公告；周末/节假日无公告时会为空，回退到 search API 按时间窗口查询，
+        // 避免周六跑漏掉周五的论文、或周一补不到周末前的论文
+        if (papers.length === 0) {
+          console.warn(`feed empty for ${categories[i]}, falling back to search API`)
+          await sleep(3000)
+          arxivRequests++
+          papers = await fetchArxivPapers(`cat:${categories[i]}`, 200, yesterday, now)
+        }
+        categoryPapers.set(categories[i], papers)
       } catch (e: any) {
-        console.error(`arXiv fetch failed for task ${task.name}:`, e.message)
-        failedTasks++
-        taskResults.push({
-          taskId: task.id,
-          taskName: task.name,
-          created: 0,
-          emailed: false,
-          error: e.message,
-        })
-        continue
+        console.error(`feed fetch failed for ${categories[i]}:`, e.message)
+        feedErrors.set(categories[i], e.message)
+      }
+    }
+
+    // 复杂查询合并成一次 search 请求，拿回后本地分发
+    let mergedPapers: ArxivPaper[] = []
+    let mergedError: string | null = null
+    if (searchTasks.length > 0) {
+      if (arxivRequests > 0) await sleep(3000)
+      arxivRequests++
+      const mergedQuery = searchTasks.map((t) => `(${t.query})`).join(' OR ')
+      const mergedMax = Math.min(
+        searchTasks.reduce((sum, t) => sum + t.maxResults, 0),
+        2000
+      )
+      try {
+        mergedPapers = await fetchArxivPapers(mergedQuery, mergedMax, yesterday, now)
+      } catch (e: any) {
+        console.error('merged arXiv search failed:', e.message)
+        mergedError = e.message
+      }
+    }
+
+    // ===== 处理阶段：逐任务分发结果、总结、入库、发邮件 =====
+    for (const task of tasks) {
+      let papers: ArxivPaper[]
+      if (isCategoryOnlyQuery(task.query)) {
+        const cats = extractCategories(task.query)
+        if (cats.every((c) => feedErrors.has(c))) {
+          failedTasks++
+          taskResults.push({
+            taskId: task.id,
+            taskName: task.name,
+            created: 0,
+            emailed: false,
+            error: feedErrors.get(cats[0]),
+          })
+          continue
+        }
+        // 多分类取并集，按 arxivId 去重；按任务配置的 maxResults 截断，控制总结成本
+        const seen = new Set<string>()
+        papers = []
+        for (const c of cats) {
+          for (const p of categoryPapers.get(c) || []) {
+            if (!seen.has(p.arxivId)) {
+              seen.add(p.arxivId)
+              papers.push(p)
+            }
+          }
+        }
+        papers = papers.slice(0, task.maxResults)
+      } else {
+        if (mergedError) {
+          failedTasks++
+          taskResults.push({
+            taskId: task.id,
+            taskName: task.name,
+            created: 0,
+            emailed: false,
+            error: mergedError,
+          })
+          continue
+        }
+        // 本地匹配分发；无法解析的查询保守处理（全部归属），避免丢论文；同样按 maxResults 截断
+        papers = mergedPapers
+          .filter((p) => {
+            const matched = matchesQuery(p, task.query)
+            if (matched === null) {
+              console.warn(`Cannot parse query locally, keeping all papers: ${task.query}`)
+              return true
+            }
+            return matched
+          })
+          .slice(0, task.maxResults)
       }
 
       const existingPapers: Array<{ arxivId: string }> = await prisma.paper.findMany({
@@ -239,6 +323,9 @@ export async function GET(request: NextRequest) {
           tasksRun: tasks.length,
           failedTasks,
           failedSummaries,
+          arxivRequests,
+          feedCategories: categories.length,
+          mergedSearch: searchTasks.length,
           fetched: totalFetched,
           created: totalCreated,
           taskResults,

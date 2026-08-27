@@ -5,11 +5,15 @@ import { useEffect, useState } from 'react'
 interface Config {
   summary_model: string
   analysis_model: string
+  openai_base_url: string
+  openai_api_key: string
 }
 
 const defaultConfig: Config = {
   summary_model: 'gpt-4o-mini',
   analysis_model: 'gpt-4o',
+  openai_base_url: '',
+  openai_api_key: '',
 }
 
 export default function ConfigForm() {
@@ -79,6 +83,38 @@ export default function ConfigForm() {
         />
         <p className="text-xs text-gray-500 mt-1">
           用于点击"深入分析"时的全文解析
+        </p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          LLM 接入地址（Base URL）
+        </label>
+        <input
+          type="text"
+          value={config.openai_base_url}
+          onChange={(e) => setConfig({ ...config, openai_base_url: e.target.value })}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500"
+          placeholder="https://api.openai.com/v1"
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          第三方中转/兼容接口地址；留空则使用环境变量 OPENAI_BASE_URL
+        </p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          LLM API Key
+        </label>
+        <input
+          type="password"
+          value={config.openai_api_key}
+          onChange={(e) => setConfig({ ...config, openai_api_key: e.target.value })}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500"
+          placeholder="sk-..."
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          当前显示为脱敏值；输入新值才会更新，保持原样或留空则继续使用现有配置/环境变量
         </p>
       </div>
 
